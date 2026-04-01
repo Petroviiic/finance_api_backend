@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: screenscore_db_container
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-user123}
+      - POSTGRES_DB=${DB_NAME:-screenscore}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data

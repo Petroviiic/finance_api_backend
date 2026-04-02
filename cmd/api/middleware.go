@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/Petroviiic/finance_api_backend/internal/ratelimiter"
+	"github.com/Petroviiic/finance_api_backend/internal/storage"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -46,17 +48,26 @@ func (app *Application) TokenAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, userContextKey, userID)
+		user, err := app.storage.UserStorage.GetById(ctx, userID)
+
+		if !user.IsActive {
+			app.customErrorJson(w, r, errors.New("account is not active"), http.StatusUnauthorized)
+			return
+		}
+
+		if err != nil {
+			app.unauthorizedErrorResponse(w, r, err)
+			return
+		}
+
+		ctx = context.WithValue(ctx, userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
+
 	})
 }
 
-func GetUserFromContext(r *http.Request) int64 {
-	userId, ok := r.Context().Value(userContextKey).(int64)
-	if !ok {
-		return -1
-	}
-	return userId
+func GetUserFromContext(r *http.Request) *storage.User {
+	return r.Context().Value(userContextKey).(*storage.User)
 }
 
 func (app *Application) RatelimiterMiddleware(limiter ratelimiter.Limiter, useUserID bool) func(http.Handler) http.Handler {
@@ -64,7 +75,7 @@ func (app *Application) RatelimiterMiddleware(limiter ratelimiter.Limiter, useUs
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var key string
 			if useUserID {
-				id := GetUserFromContext(r)
+				id := GetUserFromContext(r).ID
 				key = fmt.Sprintf("%d", id)
 			} else {
 				key = fmt.Sprintf("ip:%s", r.RemoteAddr)
@@ -72,6 +83,22 @@ func (app *Application) RatelimiterMiddleware(limiter ratelimiter.Limiter, useUs
 
 			if allow, retryAfter := limiter.Allow(key); !allow {
 				app.rateLimitExceededResponse(w, r, retryAfter.String())
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+
+	}
+}
+
+func (app *Application) RoleMiddleware(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user := GetUserFromContext(r)
+
+			if user.Role != role {
+				app.forbiddenResponse(w, r)
 				return
 			}
 

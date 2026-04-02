@@ -24,6 +24,10 @@ type Storage struct {
 		GetById(context.Context, int64) (*User, error)
 		GetByUsername(ctx context.Context, username string) (*User, error)
 		RegisterUser(ctx context.Context, user *User) (int64, error)
+		UpdateUserRole(ctx context.Context, id int64, role string) error
+		UpdateUserStatus(ctx context.Context, id int64, isActive bool) error
+		GetAllUsers(ctx context.Context) ([]*User, error)
+		DeleteUser(ctx context.Context, id int64) error
 	}
 }
 
@@ -32,8 +36,6 @@ func NewStorage(db *sql.DB) *Storage {
 		UserStorage: &UserStorage{db},
 	}
 }
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
 
 func NewTx(ctx context.Context, db *sql.DB, function func(*sql.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)

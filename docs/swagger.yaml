@@ -1,0 +1,346 @@
+basePath: /v1
+definitions:
+  main.ChangeRoleRequest:
+    properties:
+      role:
+        enum:
+        - viewer
+        - analyst
+        - admin
+        type: string
+    required:
+    - role
+    type: object
+  main.ChangeStatusRequest:
+    properties:
+      is_active:
+        type: boolean
+    required:
+    - is_active
+    type: object
+  main.LoginUserPayload:
+    properties:
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+      username:
+        maxLength: 100
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  main.UserPayload:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      first_name:
+        maxLength: 100
+        type: string
+      last_name:
+        maxLength: 100
+        type: string
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+      role:
+        enum:
+        - viewer
+        - analyst
+        - admin
+        type: string
+      username:
+        maxLength: 100
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - role
+    - username
+    type: object
+  storage.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      last_name:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  title: Finance API Backend
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Checks if the server is active.
+      responses:
+        "200":
+          description: OK
+      summary: Health check
+      tags:
+      - utils
+  /users:
+    get:
+      description: Returns a list of all registered users in the system. Only accessible
+        by Admin.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      tags:
+      - users
+  /users/{id}:
+    delete:
+      description: Permanently removes a user from the system by their ID. Only accessible
+        by Admin.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: user deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid user ID
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - users
+  /users/{id}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Allows an admin to change a user's access level (admin, analyst,
+        viewer)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New role name
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.ChangeRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: user role updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid role or ID
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Update user role
+      tags:
+      - users
+  /users/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Allows an admin to activate or deactivate a user account
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'New status (is_active: true/false)'
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.ChangeStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: user status updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload or ID
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Update user status
+      tags:
+      - users
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and returns a JWT.
+      parameters:
+      - description: Login credentials (username, password)
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.LoginUserPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JWT Token
+          schema:
+            type: string
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User login
+      tags:
+      - auth
+  /users/me:
+    get:
+      description: Returns the profile information and role of the currently authenticated
+        user based on the JWT token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved user profile
+          schema:
+            $ref: '#/definitions/storage.User'
+        "401":
+          description: Unauthorized - Invalid or missing token
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Get current user information
+      tags:
+      - users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account.
+      parameters:
+      - description: User registration data (email, username, password, device_id,
+          push_token)
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.UserPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            type: nil
+        "400":
+          description: User already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error during hashing or database insert
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer <your-jwt-token>"
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

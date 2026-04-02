@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	_ "github.com/Petroviiic/finance_api_backend/docs"
 	"github.com/Petroviiic/finance_api_backend/internal/auth"
 	"github.com/Petroviiic/finance_api_backend/internal/ratelimiter"
 	"github.com/Petroviiic/finance_api_backend/internal/storage"
@@ -97,8 +98,20 @@ func (app *Application) mount() http.Handler {
 
 			r.Group(func(r chi.Router) {
 				r.Use(app.TokenAuthMiddleware)
-				r.Post("/validate_token", app.ValidateJWTToken)
+
+				r.Get("/me", app.GetUserInfo)
 			})
+
+			r.Group(func(r chi.Router) {
+				r.Use(app.TokenAuthMiddleware)
+				r.Use(app.RoleMiddleware("admin"))
+
+				r.Get("/", app.GetAllUsers)
+				r.Patch("/{id}/status", app.ChangeStatus)
+				r.Patch("/{id}/role", app.ChangeRole)
+				r.Delete("/{id}", app.DeleteUser)
+			})
+
 		})
 
 	})

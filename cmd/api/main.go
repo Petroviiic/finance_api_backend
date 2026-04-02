@@ -12,9 +12,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// @title ScreenScore Backend API
+// @title Finance API Backend
 // @version 1.0
-// @description API powering ScreenScore backend system.
 // @host localhost:3000
 // @BasePath /v1
 // @securityDefinitions.apikey BearerAuth

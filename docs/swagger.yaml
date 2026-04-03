@@ -18,6 +18,32 @@ definitions:
     required:
     - is_active
     type: object
+  main.CreateRecordRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        maxLength: 50
+        type: string
+      description:
+        maxLength: 500
+        type: string
+      entry_date:
+        type: string
+      target_user_id:
+        type: integer
+      type:
+        enum:
+        - income
+        - expense
+        type: string
+    required:
+    - amount
+    - category
+    - entry_date
+    - target_user_id
+    - type
+    type: object
   main.LoginUserPayload:
     properties:
       password:
@@ -46,12 +72,6 @@ definitions:
         maxLength: 72
         minLength: 3
         type: string
-      role:
-        enum:
-        - viewer
-        - analyst
-        - admin
-        type: string
       username:
         maxLength: 100
         type: string
@@ -60,8 +80,35 @@ definitions:
     - first_name
     - last_name
     - password
-    - role
     - username
+    type: object
+  storage.FinancialRecord:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      entry_date:
+        type: string
+      id:
+        type: integer
+      type:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  storage.Trend:
+    properties:
+      date:
+        type: string
+      total_expense:
+        type: number
+      total_income:
+        type: number
     type: object
   storage.User:
     properties:
@@ -88,6 +135,227 @@ info:
   title: Finance API Backend
   version: "1.0"
 paths:
+  /finance/create_record:
+    post:
+      consumes:
+      - application/json
+      description: Add a new income or expense entry. Only Admin.
+      parameters:
+      - description: Record details
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateRecordRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad payload
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Create a financial record
+      tags:
+      - finance
+  /finance/delete_record/{recordID}:
+    delete:
+      description: Deletes a financial record from the system by its ID.
+      parameters:
+      - description: Record ID
+        in: path
+        name: recordID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: record deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad payload
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Delete a financial record
+      tags:
+      - finance
+  /finance/list_records:
+    get:
+      description: Get financial entries for current user with optional filters
+      parameters:
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Filter by type (income/expense)
+        in: query
+        name: type
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      - description: Result offset
+        in: query
+        name: offset
+        type: string
+      - description: Result limit
+        in: query
+        name: limit
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/storage.FinancialRecord'
+            type: array
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: List financial records
+      tags:
+      - finance
+  /finance/summary:
+    get:
+      consumes:
+      - application/json
+      description: Returns aggregated totals (income, expense, balance) and the 5
+        most recent records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns TotalIncome, TotalExpense, NetBalance and RecentRecords
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Get financial dashboard summary
+      tags:
+      - finance
+  /finance/trends:
+    get:
+      parameters:
+      - description: Months back
+        in: query
+        name: months_back
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/storage.Trend'
+            type: array
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Retrieves financial trends
+      tags:
+      - finance
+  /finance/update_record/{recordID}:
+    put:
+      consumes:
+      - application/json
+      description: Updates a financial record by its ID. Only accessible by admins.
+      parameters:
+      - description: Record ID
+        in: path
+        name: recordID
+        required: true
+        type: integer
+      - description: Update Record Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateRecordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: record updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad payload
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "403":
+          description: Forbidden - Admin only
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+      security:
+      - BearerAuth: []
+      summary: Update an existing financial record
+      tags:
+      - finance
   /health:
     get:
       description: Checks if the server is active.

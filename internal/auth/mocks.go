@@ -20,11 +20,7 @@ func (a *MockJWTAuthenticator) GenerateToken(claims jwt.Claims) (string, error) 
 	return tokenString, nil
 }
 func (a *MockJWTAuthenticator) ValidateToken(plainToken string) (*jwt.Token, error) {
-	mockClaims := jwt.MapClaims{
-		"sub": 0,
-	}
-	token, _ := a.GenerateToken(mockClaims)
-	return jwt.Parse(token, func(t *jwt.Token) (any, error) {
+	return jwt.Parse(plainToken, func(t *jwt.Token) (any, error) {
 		return []byte(""), nil
 	})
 }

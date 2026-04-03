@@ -35,8 +35,12 @@ type Config struct {
 	dbConfig    DBConfig
 	auth        authConfig
 	ratelimiter rateLimiterConfig
+	dashboard   dashboardConfig
 }
 
+type dashboardConfig struct {
+	NumberOfRecentRecords int
+}
 type rateLimiterConfig struct {
 	authFixedWindow fixedWindowLimiterConfig
 	apiFixedWindow  fixedWindowLimiterConfig
@@ -73,7 +77,7 @@ func (app *Application) mount() http.Handler {
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:3000", // for local dev
+			"http://localhost:3000",
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
@@ -88,30 +92,53 @@ func (app *Application) mount() http.Handler {
 		r.Get("/health", app.GetHealth)
 
 		r.Route("/users", func(r chi.Router) {
-			r.Use(app.RatelimiterMiddleware(app.rateLimiters.authFixedWindow, false))
 
 			r.Group(func(r chi.Router) {
-				//r.Post("/get-by-id", app.GetById)
+				r.Use(app.RatelimiterMiddleware(app.rateLimiters.authFixedWindow, false))
 				r.Post("/register", app.RegisterUser)
 				r.Post("/login", app.Login)
 			})
 
 			r.Group(func(r chi.Router) {
-				r.Use(app.TokenAuthMiddleware)
+				r.Use(app.RatelimiterMiddleware(app.rateLimiters.apiFixedWindow, true))
 
-				r.Get("/me", app.GetUserInfo)
+				r.Group(func(r chi.Router) {
+					r.Use(app.TokenAuthMiddleware)
+
+					r.Get("/me", app.GetUserInfo)
+				})
+
+				r.Group(func(r chi.Router) {
+					r.Use(app.TokenAuthMiddleware)
+					r.Use(app.RoleMiddleware("admin"))
+
+					r.Get("/", app.GetAllUsers)
+					r.Patch("/{id}/status", app.ChangeStatus)
+					r.Patch("/{id}/role", app.ChangeRole)
+					r.Delete("/{id}", app.DeleteUser)
+				})
+			})
+		})
+
+		r.Route("/finance", func(r chi.Router) {
+			r.Use(app.TokenAuthMiddleware)
+			r.Use(app.RatelimiterMiddleware(app.rateLimiters.tokenBucket, false))
+
+			r.Get("/summary", app.GetDashboardSummary)
+
+			r.Get("/list_records", app.ListRecords)
+
+			r.Group(func(r chi.Router) {
+				r.Use(app.RoleMiddleware("analyst", "admin"))
+				r.Get("/trends", app.GetFinancialTrends)
 			})
 
 			r.Group(func(r chi.Router) {
-				r.Use(app.TokenAuthMiddleware)
 				r.Use(app.RoleMiddleware("admin"))
-
-				r.Get("/", app.GetAllUsers)
-				r.Patch("/{id}/status", app.ChangeStatus)
-				r.Patch("/{id}/role", app.ChangeRole)
-				r.Delete("/{id}", app.DeleteUser)
+				r.Post("/create_record", app.CreateRecord)
+				r.Put("/update_record/{recordID}", app.UpdateRecord)
+				r.Delete("/delete_record/{recordID}", app.DeleteRecord)
 			})
-
 		})
 
 	})

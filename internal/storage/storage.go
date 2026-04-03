@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 )
 
 var (
@@ -29,11 +30,20 @@ type Storage struct {
 		GetAllUsers(ctx context.Context) ([]*User, error)
 		DeleteUser(ctx context.Context, id int64) error
 	}
+	FinancialStorage interface {
+		GetAllRecords(ctx context.Context, isAdmin bool, userID int64, category, recordType, from, to string, limit, offset int) ([]*FinancialRecord, error)
+		CreateRecord(context.Context, int64, float64, string, string, time.Time, string) (int64, error)
+		UpdateRecord(ctx context.Context, recordID int64, userID int64, Amount float64, Type string, Category string, EntryDate time.Time, Description string) error
+		DeleteRecord(ctx context.Context, recordID int64) error
+		MonthlyFinancialTrends(ctx context.Context, monthsBack int) ([]*Trend, error)
+		GetFinancialSums(ctx context.Context, userID int64, isAdmin bool) (*FinancalSum, error)
+	}
 }
 
 func NewStorage(db *sql.DB) *Storage {
 	return &Storage{
-		UserStorage: &UserStorage{db},
+		UserStorage:      &UserStorage{db},
+		FinancialStorage: &FinancialStorage{db},
 	}
 }
 

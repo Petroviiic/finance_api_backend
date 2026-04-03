@@ -28,6 +28,9 @@ func main() {
 	cfg := Config{
 		addr:      env.GetString("ADDR", ":3000"),
 		isProdEnv: env.GetBool("IS_PROD_ENV", false),
+		dashboard: dashboardConfig{
+			NumberOfRecentRecords: env.GetInt("DASHBOARD_RECORD_NUMBER", 5),
+		},
 		dbConfig: DBConfig{
 			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONS", 30),
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONS", 30),
@@ -60,6 +63,10 @@ func main() {
 		log.Panic("error connecting to db")
 		return
 	}
+	if err := runMigrations(cfg.dbConfig.dbAddr); err != nil {
+		log.Fatalf("Migrations failed: %v", err)
+	}
+
 	storage := storage.NewStorage(db)
 
 	authenticator := auth.NewJWTAuthenticator(cfg.auth.secret, cfg.auth.iss, cfg.auth.iss)

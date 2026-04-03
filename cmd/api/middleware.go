@@ -50,19 +50,17 @@ func (app *Application) TokenAuthMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		user, err := app.storage.UserStorage.GetById(ctx, userID)
 
+		if err != nil {
+			app.unauthorizedErrorResponse(w, r, err)
+			return
+		}
 		if !user.IsActive {
 			app.customErrorJson(w, r, errors.New("account is not active"), http.StatusUnauthorized)
 			return
 		}
 
-		if err != nil {
-			app.unauthorizedErrorResponse(w, r, err)
-			return
-		}
-
 		ctx = context.WithValue(ctx, userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
-
 	})
 }
 
@@ -92,17 +90,24 @@ func (app *Application) RatelimiterMiddleware(limiter ratelimiter.Limiter, useUs
 	}
 }
 
-func (app *Application) RoleMiddleware(role string) func(http.Handler) http.Handler {
+func (app *Application) RoleMiddleware(requiredRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user := GetUserFromContext(r)
-
-			if user.Role != role {
-				app.forbiddenResponse(w, r)
+			if len(requiredRoles) == 0 {
+				next.ServeHTTP(w, r)
 				return
 			}
 
-			next.ServeHTTP(w, r)
+			user := GetUserFromContext(r)
+
+			for _, role := range requiredRoles {
+				if user.Role == role {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			app.forbiddenResponse(w, r)
 		})
 
 	}

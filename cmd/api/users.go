@@ -20,10 +20,6 @@ type UserPayload struct {
 	Password  string `json:"password" validate:"required,min=3,max=72"`
 }
 
-func (app *Application) GetById(w http.ResponseWriter, r *http.Request) {
-
-}
-
 // RegisterUser godoc
 // @Summary      Register a new user
 // @Description  Creates a new user account.
@@ -156,7 +152,7 @@ func (app *Application) GetUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 type ChangeStatusRequest struct {
-	IsActive bool `json:"is_active" validate:"required"`
+	IsActive *bool `json:"is_active" validate:"required"`
 }
 
 // ChangeStatus godoc
@@ -187,8 +183,12 @@ func (app *Application) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	if err := Validate.Struct(input); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
 
-	err = app.storage.UserStorage.UpdateUserStatus(r.Context(), id, input.IsActive)
+	err = app.storage.UserStorage.UpdateUserStatus(r.Context(), id, *input.IsActive)
 	if err != nil {
 		app.internalServerErrorJson(w, r, err)
 		return
@@ -229,6 +229,10 @@ func (app *Application) ChangeRole(w http.ResponseWriter, r *http.Request) {
 
 	var input ChangeRoleRequest
 	if err := readJson(w, r, &input); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	if err := Validate.Struct(input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
